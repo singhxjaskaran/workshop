@@ -1,0 +1,6 @@
+# Contains your login cookie
+request.txt
+# Downloaded attendee data
+output/
+attendees.csv
+attendees.json
