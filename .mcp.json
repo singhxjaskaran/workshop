@@ -1,0 +1,12 @@
+{
+  "mcpServers": {
+    "ultrahuman": {
+      "command": "npx",
+      "args": ["-y", "ultrahuman-mcp@0.0.1"],
+      "env": {
+        "ULTRAHUMAN_AUTH_TOKEN": "${ULTRAHUMAN_AUTH_TOKEN:-}",
+        "ULTRAHUMAN_USER_EMAIL": "${ULTRAHUMAN_USER_EMAIL:-}"
+      }
+    }
+  }
+}
