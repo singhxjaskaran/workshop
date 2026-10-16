@@ -147,16 +147,30 @@
     return cards.map(cardRow);
   }
 
+  // One row per card. Each text goes in a column named after the element that
+  // holds it: its class (e.g. "job-title"), or its tag if it has no class
+  // (e.g. "h4"). Naming columns this way keeps them lined up when a person is
+  // missing a field. "name" is a best guess: the first text on the card.
   function cardRow(card) {
-    const texts = [];
+    let name = '';
+    const fields = {};
     const walker = card.ownerDocument.createTreeWalker(card, NodeFilter.SHOW_TEXT);
     for (let n; (n = walker.nextNode());) {
-      if (/^(SCRIPT|STYLE)$/.test(n.parentElement.tagName)) continue;
+      const holder = n.parentElement;
+      if (/^(SCRIPT|STYLE)$/.test(holder.tagName)) continue;
       const t = n.textContent.replace(/\s+/g, ' ').trim();
-      if (t && !texts.includes(t)) texts.push(t);
+      if (!t) continue;
+      name ||= t;
+      const cls = (holder.getAttribute('class') || '').trim().replace(/\s+/g, ' ');
+      const key = holder === card ? 'text' : (cls || holder.tagName.toLowerCase());
+      const values = (fields[key] ||= []);
+      if (!values.includes(t)) values.push(t);
     }
-    const row = { name: texts[0] || '' };
-    texts.slice(1).forEach((t, i) => { row[`line_${i + 2}`] = t; });
+    const row = { name };
+    for (let [key, values] of Object.entries(fields)) {
+      if (['name', 'links', 'image'].includes(key) || key.startsWith('data-')) key = `text_${key}`;
+      row[key] = values.join('; ');
+    }
     for (const attr of card.attributes) if (attr.name.startsWith('data-')) row[attr.name] = attr.value;
     const links = [...card.querySelectorAll('a[href]')]
       .map(a => a.getAttribute('href'))

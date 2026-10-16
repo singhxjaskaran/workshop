@@ -247,9 +247,10 @@ def elements(node):
 
 
 def texts_in(node):
+    """Yield (text, element that holds the text) for every text inside node."""
     for kid in node.kids:
         if isinstance(kid, str):
-            yield kid
+            yield kid, node
         else:
             yield from texts_in(kid)
 
@@ -283,7 +284,7 @@ class CardParser:
             for parent in [tree.root, *elements(tree.root)]:
                 groups = {}
                 for kid in parent.kids:
-                    if isinstance(kid, Node) and any(t.strip() for t in texts_in(kid)):
+                    if isinstance(kid, Node) and any(t.strip() for t, _ in texts_in(kid)):
                         groups.setdefault(signature(kid), []).append(kid)
                 for group in groups.values():
                     if len(group) > len(cards):
@@ -294,11 +295,26 @@ class CardParser:
         return [self.card_row(card) for card in cards]
 
     def card_row(self, card):
-        texts, links, images = [], [], []
-        for text in texts_in(card):
+        """One row per card.
+
+        Each text goes in a column named after the element that holds it: its
+        class (e.g. "job-title"), or its tag if it has no class (e.g. "h4").
+        Naming columns this way keeps them lined up when a person is missing a
+        field. "name" is a best guess: the first text on the card.
+        """
+        name, fields, links, images = "", {}, [], []
+        for text, holder in texts_in(card):
             text = " ".join(text.split())
-            if text and text not in texts:
-                texts.append(text)
+            if not text:
+                continue
+            name = name or text
+            if holder is card:
+                key = "text"
+            else:
+                key = " ".join(holder.attrs.get("class", "").split()) or holder.tag
+            values = fields.setdefault(key, [])
+            if text not in values:
+                values.append(text)
         for el in elements(card):
             href = el.attrs.get("href", "")
             if el.tag == "a" and href and not href.startswith(("#", "javascript:")):
@@ -307,9 +323,11 @@ class CardParser:
                 src = el.attrs.get("data-src") or el.attrs.get("src")
                 if src:
                     images.append(urljoin(self.base_url, src))
-        row = {"name": texts[0] if texts else ""}
-        for n, text in enumerate(texts[1:], start=2):
-            row[f"line_{n}"] = text
+        row = {"name": name}
+        for key, values in fields.items():
+            if key in ("name", "links", "image") or key.startswith("data-"):
+                key = f"text_{key}"  # don't clash with the columns set here
+            row[key] = "; ".join(values)
         row.update({k: v for k, v in card.attrs.items() if k.startswith("data-")})
         row["links"] = " ".join(dict.fromkeys(links))
         row["image"] = images[0] if images else ""
